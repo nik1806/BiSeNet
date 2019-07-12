@@ -3,16 +3,17 @@ import argparse
 from model.build_BiSeNet import BiSeNet
 import os
 import torch
-import cv2
 from imgaug import augmenters as iaa
 from PIL import Image
 from torchvision import transforms
 import numpy as np
 from utils import reverse_one_hot, get_label_info, colour_code_segmentation
 
-def predict_on_image(model, args):
+def predict_on_image(model, args, image):
+    '''
+        run inference and return the resultant image
+    '''
     # pre-processing on image
-    image = cv2.imread(args.data, -1)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     resize = iaa.Scale({'height': args.crop_height, 'width': args.crop_width})
     resize_det = resize.to_deterministic()
@@ -26,9 +27,11 @@ def predict_on_image(model, args):
     model.eval()
     predict = model(image).squeeze()
     predict = reverse_one_hot(predict)
-    predict = colour_code_segmentation(np.array(predict), label_info)
+    # predict = colour_code_segmentation(np.array(predict), label_info)
+    predict = colour_code_segmentation(np.array(predict.cpu()), label_info)
     predict = cv2.resize(np.uint8(predict), (960, 720))
-    cv2.imwrite(args.save_path, cv2.cvtColor(np.uint8(predict), cv2.COLOR_RGB2BGR))
+    # cv2.imwrite(args.save_path, cv2.cvtColor(np.uint8(predict), cv2.COLOR_RGB2BGR))
+    return predict
 
 def main(params):
     # basic parameters
@@ -38,14 +41,13 @@ def main(params):
     parser.add_argument('--checkpoint_path', type=str, default=None, help='The path to the pretrained weights of model')
     parser.add_argument('--context_path', type=str, default="resnet101", help='The context path model you are using.')
     parser.add_argument('--num_classes', type=int, default=12, help='num of object classes (with void)')
-    parser.add_argument('--data', type=str, default=None, help='Path to image or video for prediction')
+    parser.add_argument('--data', default=None, help='Path to image or video for prediction')
     parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
     parser.add_argument('--crop_width', type=int, default=960, help='Width of cropped/resized input image to network')
     parser.add_argument('--cuda', type=str, default='0', help='GPU ids used for training')
-    parser.add_argument('--use_gpu', type=bool, default=True, help='Whether to user gpu for training')
+    parser.add_argument('--use_gpu', type=bool, default=True, help='Whether to use gpu for training')
     parser.add_argument('--csv_path', type=str, default=None, required=True, help='Path to label info csv file')
     parser.add_argument('--save_path', type=str, default=None, required=True, help='Path to save predict image')
-
 
     args = parser.parse_args(params)
 
@@ -62,20 +64,51 @@ def main(params):
 
     # predict on image
     if args.image:
-        predict_on_image(model, args)
+        # read image
+        image = cv2.imread(str(args.data), -1)
+
+        # run model
+        res_image = predict_on_image(model, args, image)
+        
+        cv2.imwrite(args.save_path, res_image, cv2.COLOR_RGB2BGR)
+        # display the result
+        cv2.imshow("BiSeNet window", res_image)
+        cv2.waitKey(0)        
+
 
     # predict on video
     if args.video:
-        pass
+
+        cap = cv2.VideoCapture(args.data)
+        
+        # while video source is available, loop over the frames
+        while cap.isOpened():
+        
+            ret, frame = cap.read()
+            
+            # run model
+            res_frame = predict_on_image(model, args, frame)
+
+            # display frames
+            cv2.imshow("img", res_frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        cap.release()
+        cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
     params = [
-        '--image',
-        '--data', 'exp.png',
+        '--video',
+        # '--image',
+        '--data', 0,
         '--checkpoint_path', '/path/to/ckpt',
         '--cuda', '0',
         '--csv_path', '/data/sqy/CamVid/class_dict.csv',
         '--save_path', 'demo.png',
         '--context_path', 'resnet18'
     ]
+
     main(params)
+   
