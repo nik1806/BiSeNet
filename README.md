@@ -1,5 +1,17 @@
 # BiSeNet
-BiSeNet based on pytorch 0.4.1 and python 3.6
+BiSeNet based on pytorch 1.1.0 and python 3.7
+
+## Dependencies
+```
+opencv-contrib-python==4.1.0.25
+opencv-python==4.1.0.25
+torch==1.1.0
+torchvision==0.2.2.post3
+imgaug==0.2.9
+Pillow==6.0.0
+numpy==1.16.3
+pandas==0.24.2
+```
 
 ## Dataset  
 Download CamVid dataset from [Google Drive](https://drive.google.com/file/d/1KRRME_NtRG-iWOyLAb7gE-eA8fTeyzUR/view) or [Baidu Yun](https://pan.baidu.com/s/16k_hSycb2wxmN3IJPpbYig)(6xw4).
